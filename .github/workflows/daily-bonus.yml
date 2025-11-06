@@ -16,6 +16,9 @@ jobs:
           node-version: '18'
       
       - name: Run automation script
+        env:
+          IKUUU_EMAIL: ${{ secrets.IKUUU_EMAIL }}
+          IKUUU_PASSWORD: ${{ secrets.IKUUU_PASSWORD }}
         run: |
           npm install puppeteer
           node - << 'EOF'
@@ -29,22 +32,52 @@ jobs:
             const page = await browser.newPage();
             
             try {
-              console.log('Opening iKuuu dashboard...');
+              console.log('Opening iKuuu login page...');
+              await page.goto('https://ikuuu.de/auth/login', { 
+                waitUntil: 'networkidle2',
+                timeout: 30000 
+              });
+              
+              console.log('Logging in...');
+              // Fill in email
+              await page.type('input[type="email"]', process.env.IKUUU_EMAIL, { delay: 50 });
+              console.log('Email entered');
+              
+              // Fill in password
+              await page.type('input[type="password"]', process.env.IKUUU_PASSWORD, { delay: 50 });
+              console.log('Password entered');
+              
+              // Click login button
+              const loginButton = await page.$('button[type="submit"]');
+              if (loginButton) {
+                await loginButton.click();
+                console.log('Login button clicked');
+              } else {
+                console.log('Could not find login button');
+              }
+              
+              // Wait for navigation to complete after login
+              await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
+              console.log('Login completed, navigating to dashboard');
+              
+              // Navigate to dashboard
               await page.goto('https://ikuuu.de/user#', { 
                 waitUntil: 'networkidle2',
                 timeout: 30000 
               });
               
-              console.log('Page loaded, waiting for bonus button...');
-              await page.waitForTimeout(2000);
+              console.log('Page loaded, searching for bonus button...');
+              // Wait a bit for page to render
+              await new Promise(resolve => setTimeout(resolve, 2000));
               
               // Try to click the daily bonus button
               const clicked = await page.evaluate(() => {
                 const buttons = document.querySelectorAll('a, button');
                 for (let btn of buttons) {
-                  if (btn.textContent.includes('Come back tomorrow') || 
-                      btn.textContent.includes('签到') ||
-                      btn.textContent.includes('Daily')) {
+                  const text = btn.textContent.toLowerCase();
+                  if (text.includes('come back tomorrow') || 
+                      text.includes('签到') ||
+                      text.includes('daily')) {
                     btn.click();
                     return true;
                   }
@@ -58,8 +91,13 @@ jobs:
                 console.log('✗ Bonus button not found (may already be claimed today)');
               }
               
+              // Wait a bit to see if anything happens
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              console.log('Task completed');
+              
             } catch (error) {
               console.error('Error:', error.message);
+              console.error('Stack:', error.stack);
             } finally {
               await browser.close();
             }
