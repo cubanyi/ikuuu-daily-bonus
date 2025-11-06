@@ -1,0 +1,67 @@
+name: iKuuu Daily Bonus
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # Runs daily at 2:00 PM UTC (8:00 AM CST)
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  daily-bonus:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Run automation script
+        run: |
+          npm install puppeteer
+          node - << 'EOF'
+          const puppeteer = require('puppeteer');
+          
+          (async () => {
+            const browser = await puppeteer.launch({
+              headless: true,
+              args: ['--no-sandbox']
+            });
+            const page = await browser.newPage();
+            
+            try {
+              console.log('Opening iKuuu dashboard...');
+              await page.goto('https://ikuuu.de/user#', { 
+                waitUntil: 'networkidle2',
+                timeout: 30000 
+              });
+              
+              console.log('Page loaded, waiting for bonus button...');
+              await page.waitForTimeout(2000);
+              
+              // Try to click the daily bonus button
+              const clicked = await page.evaluate(() => {
+                const buttons = document.querySelectorAll('a, button');
+                for (let btn of buttons) {
+                  if (btn.textContent.includes('Come back tomorrow') || 
+                      btn.textContent.includes('签到') ||
+                      btn.textContent.includes('Daily')) {
+                    btn.click();
+                    return true;
+                  }
+                }
+                return false;
+              });
+              
+              if (clicked) {
+                console.log('✓ Daily bonus button clicked successfully!');
+              } else {
+                console.log('✗ Bonus button not found (may already be claimed today)');
+              }
+              
+            } catch (error) {
+              console.error('Error:', error.message);
+            } finally {
+              await browser.close();
+            }
+          })();
+          EOF
