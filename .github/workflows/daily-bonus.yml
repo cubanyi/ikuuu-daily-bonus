@@ -61,7 +61,7 @@ jobs:
               console.log('Login completed, navigating to dashboard');
               
               // Navigate to dashboard
-              await page.goto('https://ikuuu.de/user#', { 
+              await page.goto('https://ikuuu.boo/user#', { 
                 waitUntil: 'networkidle2',
                 timeout: 30000 
               });
